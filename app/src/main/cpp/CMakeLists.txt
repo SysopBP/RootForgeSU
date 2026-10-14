@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(rootforge_native LANGUAGES CXX)
+add_library(rootforge_native SHARED rootforge_native.cpp)
+target_compile_features(rootforge_native PRIVATE cxx_std_17)
+target_link_libraries(rootforge_native log)
