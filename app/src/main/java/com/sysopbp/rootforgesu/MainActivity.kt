@@ -90,7 +90,8 @@ class MainActivity : Activity() {
         }.start()
     }
     private fun report(): String = listOf(
-        "RootForgeSU 0.3.0-alpha",
+        "RootForgeSU 0.4.0-alpha",
+        "Native core: ${NativeCore.diagnostic()}",
         "Device: ${Build.MANUFACTURER} ${Build.MODEL}",
         "Android: ${Build.VERSION.RELEASE} API ${Build.VERSION.SDK_INT}",
         "Kernel: ${kernel()}",
@@ -163,8 +164,9 @@ class MainActivity : Activity() {
                 card("DIAGNOSTICS", "Device information is read locally. No telemetry or network permission.")
                 card("SECURITY", "Locked-bootloader rooting is not implemented. Experimental backends are disabled.")
                 card("SELINUX", selinux())
+                card("NATIVE CORE — READ ONLY", NativeCore.diagnostic())
                 action("Export diagnostics to file") { exportReport() }
-                card("VERSION", "RootForgeSU 0.3.0-alpha")
+                card("VERSION", "RootForgeSU 0.4.0-alpha")
             }
         }
     }
