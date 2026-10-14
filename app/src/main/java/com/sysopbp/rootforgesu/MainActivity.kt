@@ -6,6 +6,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
@@ -72,7 +73,10 @@ class MainActivity : Activity() {
             "0" -> "Permissive"
             else -> "Unknown"
         }
-    } catch (_: Exception) { "Unknown (not readable)" }
+    } catch (_: Exception) {
+        val context = runCatching { File("/proc/self/attr/current").readText().trim() }.getOrDefault("Unknown")
+        "Enforcement unknown (restricted); app context: $context"
+    }
     private fun verifyRoot() {
         rootResult = "Checking…"
         screen(currentSection)
@@ -175,6 +179,8 @@ class MainActivity : Activity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.decorView.systemUiVisibility = 0
+        window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS)
         window.statusBarColor = background
         window.navigationBarColor = background
         val root = LinearLayout(this).apply {
