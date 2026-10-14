@@ -13,7 +13,6 @@ import android.widget.ScrollView
 import android.widget.TextView
 import java.io.File
 import android.content.Intent
-import android.os.SELinux
 import android.widget.Toast
 import java.util.concurrent.TimeUnit
 
@@ -68,9 +67,12 @@ class MainActivity : Activity() {
         return if (found.isEmpty()) "No queried managers visible; forks may use other package IDs" else found.joinToString(", ")
     }
     private fun selinux(): String = try {
-        if (!SELinux.isSELinuxEnabled()) "Disabled"
-        else if (SELinux.isSELinuxEnforced()) "Enforcing" else "Permissive"
-    } catch (_: Exception) { "Unknown" }
+        when (File("/sys/fs/selinux/enforce").readText().trim()) {
+            "1" -> "Enforcing"
+            "0" -> "Permissive"
+            else -> "Unknown"
+        }
+    } catch (_: Exception) { "Unknown (not readable)" }
     private fun verifyRoot() {
         rootResult = "Checking…"
         screen(currentSection)
@@ -149,7 +151,7 @@ class MainActivity : Activity() {
                 card("ARCHITECTURE", Build.SUPPORTED_ABIS.joinToString())
                 val kmi = Regex("android\\d+-\\d+\\.\\d+").find(kernel())?.value
                 card("KMI INDICATOR", kmi ?: "Not detected from kernel release")
-                card("FIRMWARE", "${Build.DISPLAY}\\nSecurity patch: ${Build.VERSION.SECURITY_PATCH}\\nBootloader: ${Build.BOOTLOADER}")
+                card("FIRMWARE", "${Build.DISPLAY}\nSecurity patch: ${Build.VERSION.SECURITY_PATCH}\nBootloader: ${Build.BOOTLOADER}")
             }
             "Root" -> {
                 card("ENVIRONMENT", rootSignals())
