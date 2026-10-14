@@ -90,7 +90,7 @@ class MainActivity : Activity() {
         }.start()
     }
     private fun report(): String = listOf(
-        "RootForgeSU 0.4.0-alpha",
+        "RootForgeSU 0.5.0-alpha",
         "Native core: ${NativeCore.diagnostic()}",
         "Device: ${Build.MANUFACTURER} ${Build.MODEL}",
         "Android: ${Build.VERSION.RELEASE} API ${Build.VERSION.SDK_INT}",
@@ -104,6 +104,7 @@ class MainActivity : Activity() {
         "Managers: ${managers()}",
         "Root paths: ${rootSignals()}",
         "Root authorization: $rootResult",
+        "Security diagnostics: ${DeviceSecurity.summary()}",
         "No identifiers or raw logs included."
     ).joinToString("\n")
     private fun exportReport() {
@@ -145,6 +146,7 @@ class MainActivity : Activity() {
                 card("ROOT STATUS", rootSignals())
                 card("ROOT AUTHORIZATION", rootResult)
                 card("SELINUX", selinux())
+                card("BOOT & DEVICE SECURITY", DeviceSecurity.summary())
                 card("SAFETY", "Read-only diagnostics • No exploit or privileged operations")
             }
             "Kernel" -> {
@@ -165,8 +167,9 @@ class MainActivity : Activity() {
                 card("SECURITY", "Locked-bootloader rooting is not implemented. Experimental backends are disabled.")
                 card("SELINUX", selinux())
                 card("NATIVE CORE — READ ONLY", NativeCore.diagnostic())
+                card("COMPATIBILITY STATUS", "Detected: kernel and device properties\\nVerified: native library diagnostics only\\nUnsupported: no configurations confirmed\\nUnknown: locked-bootloader rooting feasibility")
                 action("Export diagnostics to file") { exportReport() }
-                card("VERSION", "RootForgeSU 0.4.0-alpha")
+                card("VERSION", "RootForgeSU 0.5.0-alpha")
             }
         }
     }
