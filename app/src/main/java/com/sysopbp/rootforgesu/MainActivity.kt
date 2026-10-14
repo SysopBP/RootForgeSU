@@ -12,12 +12,18 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import java.io.File
+import android.content.Intent
+import android.os.SELinux
+import android.widget.Toast
+import java.util.concurrent.TimeUnit
 
 class MainActivity : Activity() {
     private val background = Color.rgb(5, 5, 8)
     private val surface = Color.rgb(24, 24, 30)
     private val accent = Color.rgb(177, 66, 93)
     private lateinit var content: LinearLayout
+    private var rootResult = "Not verified"
+    private var currentSection = "Overview"
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
     private fun shape(color: Int): GradientDrawable = GradientDrawable().apply {
@@ -52,7 +58,79 @@ class MainActivity : Activity() {
         return if (visible.isEmpty()) "No known root paths visible • Root may still be present"
         else "Possible root environment detected: ${visible.joinToString()}\nNot a verified root grant"
     }
+
+    private fun managers(): String {
+        val ids = listOf("me.weishu.kernelsu" to "KernelSU", "com.rifsxd.ksunext" to "KernelSU Next", "com.topjohnwu.magisk" to "Magisk")
+        val found = ids.mapNotNull { (id, label) ->
+            try { val info = packageManager.getPackageInfo(id, 0); "$label: ${info.versionName}" }
+            catch (_: Exception) { null }
+        }
+        return if (found.isEmpty()) "No queried managers visible; forks may use other package IDs" else found.joinToString(", ")
+    }
+    private fun selinux(): String = try {
+        if (!SELinux.isSELinuxEnabled()) "Disabled"
+        else if (SELinux.isSELinuxEnforced()) "Enforcing" else "Permissive"
+    } catch (_: Exception) { "Unknown" }
+    private fun verifyRoot() {
+        rootResult = "Checking…"
+        screen(currentSection)
+        Thread {
+            val result = try {
+                val p = ProcessBuilder("su", "-c", "id").redirectErrorStream(true).start()
+                if (!p.waitFor(8, TimeUnit.SECONDS)) { p.destroyForcibly(); "Timed out" }
+                else {
+                    val output = p.inputStream.bufferedReader().readText()
+                    if (p.exitValue() == 0 && output.contains("uid=0(")) "Verified UID 0"
+                    else "Not verified: ${output.take(120)}"
+                }
+            } catch (e: Exception) { "Not verified: ${e.javaClass.simpleName}" }
+            runOnUiThread { rootResult = result; screen(currentSection) }
+        }.start()
+    }
+    private fun report(): String = listOf(
+        "RootForgeSU 0.3.0-alpha",
+        "Device: ${Build.MANUFACTURER} ${Build.MODEL}",
+        "Android: ${Build.VERSION.RELEASE} API ${Build.VERSION.SDK_INT}",
+        "Kernel: ${kernel()}",
+        "KMI: ${Regex("android\\d+-\\d+\\.\\d+").find(kernel())?.value ?: "Unknown"}",
+        "Architecture: ${Build.SUPPORTED_ABIS.joinToString()}",
+        "Firmware: ${Build.DISPLAY}",
+        "Security patch: ${Build.VERSION.SECURITY_PATCH}",
+        "Bootloader: ${Build.BOOTLOADER}",
+        "SELinux: ${selinux()}",
+        "Managers: ${managers()}",
+        "Root paths: ${rootSignals()}",
+        "Root authorization: $rootResult",
+        "No identifiers or raw logs included."
+    ).joinToString("\n")
+    private fun exportReport() {
+        startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TITLE, "RootForgeSU_Diagnostics.txt")
+        }, 41)
+    }
+    @Deprecated("Document picker callback")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 41 && resultCode == RESULT_OK) {
+            try {
+                val uri = data?.data ?: return
+                contentResolver.openOutputStream(uri)?.use { it.write(report().toByteArray()) }
+                    ?: error("Destination unavailable")
+                Toast.makeText(this, "Report saved", Toast.LENGTH_LONG).show()
+            } catch (e: Exception) { Toast.makeText(this, "Export failed", Toast.LENGTH_LONG).show() }
+        }
+    }
+    private fun action(label: String, onClick: () -> Unit) {
+        content.addView(Button(this).apply {
+            text = label
+            isAllCaps = false
+            setOnClickListener { onClick() }
+        })
+    }
     private fun screen(section: String) {
+        currentSection = section;
         content.removeAllViews()
         content.addView(text(section, 27f, Color.WHITE, true).apply {
             setPadding(dp(2), dp(4), 0, dp(18))
@@ -62,6 +140,8 @@ class MainActivity : Activity() {
                 card("DEVICE", "${Build.MANUFACTURER} ${Build.MODEL}")
                 card("SYSTEM", "Android ${Build.VERSION.RELEASE} • API ${Build.VERSION.SDK_INT}\n${Build.DISPLAY}")
                 card("ROOT STATUS", rootSignals())
+                card("ROOT AUTHORIZATION", rootResult)
+                card("SELINUX", selinux())
                 card("SAFETY", "Read-only diagnostics • No exploit or privileged operations")
             }
             "Kernel" -> {
@@ -69,17 +149,20 @@ class MainActivity : Activity() {
                 card("ARCHITECTURE", Build.SUPPORTED_ABIS.joinToString())
                 val kmi = Regex("android\\d+-\\d+\\.\\d+").find(kernel())?.value
                 card("KMI INDICATOR", kmi ?: "Not detected from kernel release")
-                card("BUILD", Build.FINGERPRINT)
+                card("FIRMWARE", "${Build.DISPLAY}\\nSecurity patch: ${Build.VERSION.SECURITY_PATCH}\\nBootloader: ${Build.BOOTLOADER}")
             }
             "Root" -> {
                 card("ENVIRONMENT", rootSignals())
-                card("MANAGER COMPATIBILITY", "KernelSU / ReSukiSU / BakaSU checks are planned. No manager identity has been verified.")
-                card("PRIVILEGES", "Not requested • No root command executed")
+                card("MANAGER DETECTION", managers())
+                card("PRIVILEGES", rootResult)
+                action("Verify root access") { verifyRoot() }
             }
             else -> {
                 card("DIAGNOSTICS", "Device information is read locally. No telemetry or network permission.")
                 card("SECURITY", "Locked-bootloader rooting is not implemented. Experimental backends are disabled.")
-                card("VERSION", "RootForgeSU 0.2.0-alpha")
+                card("SELINUX", selinux())
+                action("Export diagnostics to file") { exportReport() }
+                card("VERSION", "RootForgeSU 0.3.0-alpha")
             }
         }
     }
