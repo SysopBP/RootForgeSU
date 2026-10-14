@@ -174,7 +174,7 @@ class MainActivity : Activity() {
         window.navigationBarColor = background
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(background)
+            setBackgroundColor(this@MainActivity.background)
             setPadding(dp(16), dp(12), dp(16), dp(12))
         }
         root.addView(text("ROOTFORGE  /  SU", 13f, accent, true).apply {
@@ -182,7 +182,7 @@ class MainActivity : Activity() {
         })
         content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         root.addView(ScrollView(this).apply {
-            fillViewport = true
+            isFillViewport = true
             addView(content)
         }, LinearLayout.LayoutParams(-1, 0, 1f))
         val nav = LinearLayout(this).apply {
